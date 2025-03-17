@@ -3,7 +3,7 @@
 // Imports
 import pg  from "pg"
 import dotenv from "dotenv"
-import { checkDatabaseExists, testDatabaseConnection } from "./../utils/dbUtils.js"
+import { checkDatabaseExists, testDatabaseConnection } from "../utils/dbUtils.js"
 import { fileURLToPath } from 'url';
 import path from 'path';
 
