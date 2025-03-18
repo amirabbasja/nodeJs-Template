@@ -306,6 +306,7 @@ Note that when a file or directory contains "_EXAMPLE" at its extension or name,
 1. The app variable (express()) has a local variable dbPool which can be used in every file for interacting with the database
 2. We have used postgreSQL in this template. Helper functions for interacting with postgreSQL are added to `./src/utils/dbUtils.js`
 3. In all the codes of the following documentation, ES6 module has been used.
+4. Do remember to change the app name by changing the variable `app.locals.appName` in `/src/app.js`
 
 ## TODO
 
