@@ -6,7 +6,7 @@ Note that when a file or directory contains "_EXAMPLE" at its extension or name,
 ## Initial steps
 
 * initialize git: `Git init`
-* install necessary packages: `npm install express nodemon pg dotenv`
+* install necessary packages: `npm install express nodemon pg dotenv nodemon`
 * make the package.json file: `npm init --yes`
 * add the following to "scripts" value package.json: `"dev": "nodemon app.js"`
 * add the following key value pair to package.json: `"type": "module"`
