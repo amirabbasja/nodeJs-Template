@@ -7,7 +7,7 @@ const app = express()
 
 // Middleware
 app.use(express.json())
-app.use(express.static(join(join(fileURLToPath(import.meta.url),".."), 'public')));
+app.use(express.static(join(join(fileURLToPath(import.meta.url),"../.."), 'public')));
 
 // Local variables
 app.locals.appName = "_______"
