@@ -39,6 +39,40 @@ async function checkDatabaseExists(databaseName, pool, verbose = false) {
 }
 
 /**
+ * Create a database with specific name. Need to connect to default postgers database 
+ * named "postgres". If not found, an error will be thrown.
+ * @param {JSON} dbInfo - Database connection info, containing keys "host", "port", "user", "password
+ * @param {String} dbName - Name of the database
+ * @param {boolean} verbose - Optional flag to enable verbose logging
+ * @returns {Promise<boolean>} - True if creation is successful, false otherwise
+ */
+async function createDatabase(dbInfo, dbName, verbose = false) {
+    try{
+        // Connect to default postgres database first
+        const pool = new Pool({
+            host: dbInfo.host,
+            port: dbInfo.port,
+            user: dbInfo.user,
+            password: dbInfo.password,
+            database: 'postgres' // Connect to default db to create a new one
+        })
+
+        try {
+            await pool.query(`CREATE DATABASE "${dbName}"`) 
+            await pool.end()
+            return true
+        } catch (error) {
+            if (verbose) {console.error('Database creation failed:', error)}
+            await pool.end()
+            return false
+        }
+    } catch (error) {
+        if (verbose) {console.error("Could not connect to default database postgres. Create the database manually.")}
+        return false
+    }
+}
+
+/**
  * Check if a table exists in the current database
  * @param {string} tableName - Name of the table to check
  * @param {Pool} pool - Pool of database connections
@@ -257,6 +291,7 @@ export {
     checkDatabaseExists,
     checkTableExists,
     getAllFromTable,
+    createDatabase,
     updateRecords,
     createTable,
     deleteEntry,

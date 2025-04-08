@@ -3,7 +3,7 @@
 // Imports
 import pg  from "pg"
 import dotenv from "dotenv"
-import { checkDatabaseExists, testDatabaseConnection } from "../utils/dbUtils.js"
+import {createDatabase, checkDatabaseExists, testDatabaseConnection } from "../utils/dbUtils.js"
 import { fileURLToPath } from 'url';
 import path from 'path';
 
@@ -38,7 +38,18 @@ if (dbConnection_check && dbExistence_check) {
     console.log("Database connection successful")
 } else if (!dbConnection_check) {
     console.log("Database connection failed")
-    throw new Error("Database connection failed")
+    try{
+        const dbCreation = await createDatabase(dbConfig, db_name, true)
+
+        if(dbCreation){
+            console.log(`Created database ${db_name}`)
+        }else{
+            throw new Error(`Failed to create database ${db_name}`)
+        }
+    }
+    catch (error) {
+        throw new Error("Database connection failed")
+    }
 } else if (!dbExistence_check) {
     console.log(`Database ${db_name} doesn't exist`)
     throw new Error(`Database ${db_name} doesn't exist`)
