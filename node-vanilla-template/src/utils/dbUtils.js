@@ -152,6 +152,25 @@ async function getAllFromTable(tableName, pool) {
 }
 
 /**
+ * Retrieves an entire table and returns it as a JSON object
+ * @param {string} tableName - The name of the table to retrieve
+ * @param {Pool} pool - The pool of database connections
+ * @returns {Promise<Array>} - Promise resolving to an array of row objects
+ */
+const getTableAsJson = async (tableName, pool) => {
+    try {
+        // Query the table
+        const result = await pool.query(`SELECT * FROM ${tableName}`);
+
+        // Return the rows as JSON
+        return result.rows;
+    } catch (error) {
+        console.error('Error retrieving table data:', error);
+        throw error;
+    }
+};
+
+/**
  * Retrieves a single entry from a PostgreSQL table based on specific conditions.
  * 
  * @param {string} tableName - The name of the table to query
@@ -291,6 +310,7 @@ export {
     checkDatabaseExists,
     checkTableExists,
     getAllFromTable,
+    getTableAsJson,
     createDatabase,
     updateRecords,
     createTable,
