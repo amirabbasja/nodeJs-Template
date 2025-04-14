@@ -295,10 +295,6 @@ async function updateRecords(tableName, pool, conditions, updates) {
         
         const result = await pool.query(query, values);
         
-        if (result.rows.length === 0) {
-            throw new Error(`No records matched the specified conditions`);
-        }
-        
         return result.rows;
     } catch (error) {
         throw new Error(`Failed to update records: ${error.message}`);
