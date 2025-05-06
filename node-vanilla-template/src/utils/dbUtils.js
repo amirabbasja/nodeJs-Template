@@ -1,4 +1,5 @@
 import pg  from "pg"
+import assert from "assert"
 const {Pool} = pg
 
 /**
@@ -9,33 +10,12 @@ const {Pool} = pg
  */
 async function testDatabaseConnection(pool, verbose = false) {
     try {
-        await pool.query('SELECT NOW()') // Simple query to test connection
+        await pool.query('SELECT NOW()') 
         return true
     } catch (error) {
         if (verbose) {console.error('Database connection failed:', error)}
         return false
     }
-}
-
-/**
- * Check if a database exists
- * @param {string} databaseName - Name of the database to check
- * @param {Pool} pool - Pool of database connections
- * @param {boolean} verbose - Optional flag to enable verbose logging
- * @returns {Promise<boolean>} - True if database exists, false otherwise
- */
-async function checkDatabaseExists(databaseName, pool, verbose = false) {
-    try {
-        const result = await pool.query(
-            'SELECT 1 FROM pg_database WHERE datname = $1',
-            [databaseName]
-        )
-        // console.log(result.rowCount > 0)
-        return result.rowCount > 0
-    } catch (error) {
-        if (verbose) {console.error('Error checking if database exists:', error)}
-        return false
-    } 
 }
 
 /**
@@ -47,6 +27,7 @@ async function checkDatabaseExists(databaseName, pool, verbose = false) {
  * @returns {Promise<boolean>} - True if creation is successful, false otherwise
  */
 async function createDatabase(dbInfo, dbName, verbose = false) {
+    
     try{
         // Connect to default postgres database first
         const pool = new Pool({
@@ -70,6 +51,27 @@ async function createDatabase(dbInfo, dbName, verbose = false) {
         if (verbose) {console.error("Could not connect to default database postgres. Create the database manually.")}
         return false
     }
+}
+
+/**
+ * Check if a database exists
+ * @param {string} databaseName - Name of the database to check
+ * @param {Pool} pool - Pool of database connections
+ * @param {boolean} verbose - Optional flag to enable verbose logging
+ * @returns {Promise<boolean>} - True if database exists, false otherwise
+ */
+async function checkDatabaseExists(databaseName, pool, verbose = false) {
+    try {
+        const result = await pool.query(
+            'SELECT 1 FROM pg_database WHERE datname = $1',
+            [databaseName]
+        )
+        // console.log(result.rowCount > 0)
+        return result.rowCount > 0
+    } catch (error) {
+        if (verbose) {console.error('Error checking if database exists:', error)}
+        return false
+    } 
 }
 
 /**
@@ -121,6 +123,7 @@ async function addRow(tableName, data, pool) {
         const columns = Object.keys(data).join(', ')
         const values = Object.values(data).map((value) => `'${value}'`).join(', ')
         const query = `INSERT INTO ${tableName} (${columns}) VALUES (${values}) RETURNING *`
+        
         const result = await pool.query(query)
         return result.rows[0]
     } catch (error) {
@@ -152,26 +155,7 @@ async function getAllFromTable(tableName, pool) {
 }
 
 /**
- * Retrieves an entire table and returns it as a JSON object
- * @param {string} tableName - The name of the table to retrieve
- * @param {Pool} pool - The pool of database connections
- * @returns {Promise<Array>} - Promise resolving to an array of row objects
- */
-const getTableAsJson = async (tableName, pool) => {
-    try {
-        // Query the table
-        const result = await pool.query(`SELECT * FROM ${tableName}`);
-
-        // Return the rows as JSON
-        return result.rows;
-    } catch (error) {
-        console.error('Error retrieving table data:', error);
-        throw error;
-    }
-};
-
-/**
- * Retrieves a single entry from a PostgreSQL table based on specific conditions.
+ * Retrieves entries from a PostgreSQL table based on specific conditions.
  * 
  * @param {string} tableName - The name of the table to query
  * @param {Object} conditions - An object containing column/value pairs for filtering
@@ -181,7 +165,8 @@ const getTableAsJson = async (tableName, pool) => {
  *      To pass multiple fields, embed them in an array. If you need a single column,
  *      passing a single string would suffice as well.
  * @param {Object} [options.sort] - Sorting criteria {field: 'asc'|'desc'}
- * @returns {Promise<Object|null>} The found entry or null if not found
+ * @param {number} [options.maxEntries=1] - The maximum number of entries to return
+ * @returns {Promise<Object|Array|null>} The found entry/entries or null if not found
  * @throws {Error} If the database query fails
  */
 async function getEntry(tableName, conditions, pool, options = {}) {
@@ -215,16 +200,44 @@ async function getEntry(tableName, conditions, pool, options = {}) {
         }
     }
 
-    // Construct the full query
-    const query = `SELECT ${fields} FROM ${tableName} ${whereClause} ${orderByClause} LIMIT 1`
+    // Set the limit based on maxEntries option (default to 1 for backward compatibility)
+    const limit = options.maxEntries ? options.maxEntries : 1;
 
+    // Construct the full query
+    const query = `SELECT ${fields} FROM ${tableName} ${whereClause} ${orderByClause} LIMIT ${limit}`
     try {
         const result = await pool.query(query, whereParams)
+        
+        // If maxEntries is specified and greater than 1, return the array of results
+        if (options.maxEntries && options.maxEntries > 1) {
+            return result.rows.length > 0 ? result.rows : null
+        }
+        
+        // Otherwise maintain backward compatibility by returning just the first row
         return result.rows.length > 0 ? result.rows[0] : null
     } catch (error) {
         throw new Error(`Failed to retrieve entry from ${tableName}: ${error.message}`)
     }
 }
+
+/**
+ * Retrieves an entire table and returns it as a JSON object
+ * @param {string} tableName - The name of the table to retrieve
+ * @param {Pool} pool - The pool of database connections
+ * @returns {Promise<Array>} - Promise resolving to an array of row objects
+ */
+const getTableAsJson = async (tableName, pool) => {
+    try {
+        // Query the table
+        const result = await pool.query(`SELECT * FROM ${tableName}`);
+
+        // Return the rows as JSON
+        return result.rows;
+    } catch (error) {
+        console.error('Error retrieving table data:', error);
+        throw error;
+    }
+};
 
 /**
  * Deletes a single entry from a PostgreSQL table based on specific conditions.
@@ -239,28 +252,28 @@ async function getEntry(tableName, conditions, pool, options = {}) {
  */
 async function deleteEntry(tableName, conditions, pool, options = {}) {
     // Build the WHERE clause
-    const whereParams = [];
-    const whereClauses = [];
+    const whereParams = []
+    const whereClauses = []
     
     Object.entries(conditions).forEach(([column, value], index) => {
-        whereClauses.push(`${column} = $${index + 1}`);
-        whereParams.push(value);
-    });
+        whereClauses.push(`${column} = $${index + 1}`)
+        whereParams.push(value)
+    })
     
     if (whereClauses.length === 0) {
-        throw new Error('At least one condition is required for safety');
+        throw new Error('At least one condition is required for safety')
     }
     
-    const returningClause = options.returning ? 'RETURNING *' : '';
+    const returningClause = options.returning ? 'RETURNING *' : ''
     
     // Construct the delete query
-    const query = `DELETE FROM ${tableName} WHERE ${whereClauses.join(' AND ')} ${returningClause}`;
+    const query = `DELETE FROM ${tableName} WHERE ${whereClauses.join(' AND ')} ${returningClause}`
     
     try {
-        const result = await pool.query(query, whereParams);
-        return options.returning ? (result.rows[0] || null) : result.rowCount;
+        const result = await pool.query(query, whereParams)
+        return options.returning ? (result.rows[0] || null) : result.rowCount
     } catch (error) {
-        throw new Error(`Failed to delete entry from ${tableName}: ${error.message}`);
+        throw new Error(`Failed to delete entry from ${tableName}: ${error.message}`)
     }
 }
 
@@ -277,37 +290,37 @@ async function deleteEntry(tableName, conditions, pool, options = {}) {
 async function updateRecords(tableName, pool, conditions, updates) {
     try {
       // Build SET clause from updates object
-        const setClause = Object.keys(updates).map((key, index) => `${key} = $${index + 1}`).join(", ");
+        const setClause = Object.keys(updates).map((key, index) => `${key} = $${index + 1}`).join(", ")
         
-        let whereClause = '';
-        let values = [...Object.values(updates)];
+        let whereClause = ''
+        let values = [...Object.values(updates)]
         
         // Build WHERE clause from conditions object
         if (Object.keys(conditions).length > 0) {
         whereClause = 'WHERE ' + Object.keys(conditions)
             .map((key, index) => `${key} = $${index + 1 + Object.keys(updates).length}`)
-            .join(" AND ");
+            .join(" AND ")
         
-        values = [...values, ...Object.values(conditions)];
+        values = [...values, ...Object.values(conditions)]
         }
         
-        const query = `UPDATE ${tableName} SET ${setClause} ${whereClause} RETURNING * `;
+        const query = `UPDATE ${tableName} SET ${setClause} ${whereClause} RETURNING * `
         
-        const result = await pool.query(query, values);
+        const result = await pool.query(query, values)
         
-        return result.rows;
+        return result.rows
     } catch (error) {
-        throw new Error(`Failed to update records: ${error.message}`);
+        throw new Error(`Failed to update records: ${error.message}`)
     }
 }
 
-export { 
+export default { 
     testDatabaseConnection,
     checkDatabaseExists,
     checkTableExists,
     getAllFromTable,
-    getTableAsJson,
     createDatabase,
+    getTableAsJson,
     updateRecords,
     createTable,
     deleteEntry,
