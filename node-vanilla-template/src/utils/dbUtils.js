@@ -165,7 +165,7 @@ async function getAllFromTable(tableName, pool) {
  *      To pass multiple fields, embed them in an array. If you need a single column,
  *      passing a single string would suffice as well.
  * @param {Object} [options.sort] - Sorting criteria {field: 'asc'|'desc'}
- * @param {number} [options.maxEntries=1] - The maximum number of entries to return
+ * @param {number} [options.maxEntries] - The maximum number of entries to return (no limit by default)
  * @returns {Promise<Object|Array|null>} The found entry/entries or null if not found
  * @throws {Error} If the database query fails
  */
@@ -200,21 +200,26 @@ async function getEntry(tableName, conditions, pool, options = {}) {
         }
     }
 
-    // Set the limit based on maxEntries option (default to 1 for backward compatibility)
-    const limit = options.maxEntries ? options.maxEntries : 1;
+    // Set the limit based on maxEntries option (default to no limit)
+    const limitClause = options.maxEntries ? `LIMIT ${options.maxEntries}` : ''
 
     // Construct the full query
-    const query = `SELECT ${fields} FROM ${tableName} ${whereClause} ${orderByClause} LIMIT ${limit}`
+    const query = `SELECT ${fields} FROM ${tableName} ${whereClause} ${orderByClause} ${limitClause}`
     try {
         const result = await pool.query(query, whereParams)
         
-        // If maxEntries is specified and greater than 1, return the array of results
-        if (options.maxEntries && options.maxEntries > 1) {
-            return result.rows.length > 0 ? result.rows : null
+        // If no results found, return null
+        if (result.rows.length === 0) {
+            return null
         }
         
-        // Otherwise maintain backward compatibility by returning just the first row
-        return result.rows.length > 0 ? result.rows[0] : null
+        // For backward compatibility: if maxEntries is 1, return just the first row
+        if (options.maxEntries === 1) {
+            return result.rows[0]
+        }
+        
+        // Otherwise return the array of all results
+        return result.rows
     } catch (error) {
         throw new Error(`Failed to retrieve entry from ${tableName}: ${error.message}`)
     }
